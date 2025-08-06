@@ -4,8 +4,7 @@ import os
 
 app = Flask(__name__)
 
-OPENROUTER_API_KEY = "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"
-
+OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
@@ -27,7 +26,6 @@ def chat():
 
     try:
         completion = client.chat.completions.create(
-            # Using DeepSeek-R1. If you want to use a different model, change this.
             model="deepseek/deepseek-r1:free", 
             messages=[
                 {
