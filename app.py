@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+OPENROUTER_API_KEY = "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"
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
