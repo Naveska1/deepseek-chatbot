@@ -27,7 +27,7 @@ def chat():
 
     try:
         completion = client.chat.completions.create(
-            model="deepseek/deepseek-r1-0528:free", 
+            model="openai/gpt-oss-20b:free", 
             messages=[
                 {
                     "role": "system",
