@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 import os
 import requests
 import base64
+from PyPDF2 import PdfReader # Import the PDF library
 
 app = Flask(__name__)
 
@@ -13,13 +14,36 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 def index():
     return render_template('index.html')
 
-# API endpoint to handle chat requests
+# API endpoint to handle chat and file uploads
 @app.route('/chat', methods=['POST'])
 def chat():
-    data = request.json
-    user_message = data.get('message', '')
-    file_contents = data.get('fileContents', '')
-    image_data = data.get('imageData', None)
+    user_message = request.form.get('message', '')
+    
+    file_contents = ''
+    image_data = None
+    
+    # Process files from the form data
+    if 'file' in request.files:
+        for uploaded_file in request.files.getlist('file'):
+            file_type = uploaded_file.content_type
+            
+            if file_type == 'application/pdf':
+                try:
+                    pdf_reader = PdfReader(uploaded_file)
+                    text = ""
+                    for page in pdf_reader.pages:
+                        text += page.extract_text() or ""
+                    file_contents += f"Content from PDF '{uploaded_file.filename}':\n\n{text}\n\n"
+                except Exception as e:
+                    return jsonify({'error': f'Failed to process PDF: {str(e)}'}), 400
+            
+            elif file_type.startswith('image/'):
+                image_bytes = uploaded_file.read()
+                image_data = base64.b64encode(image_bytes).decode('utf-8')
+            
+            elif file_type.startswith('text/'):
+                text = uploaded_file.read().decode('utf-8')
+                file_contents += f"Content from text file '{uploaded_file.filename}':\n\n{text}\n\n"
 
     if not user_message and not file_contents and not image_data:
         return jsonify({'error': 'No message or file content provided'}), 400
@@ -31,17 +55,15 @@ def chat():
             "Content-Type": "application/json"
         }
 
-        # Build the parts for the Gemini API call
         parts = []
         if user_message:
             parts.append({"text": user_message})
         if file_contents:
-            parts.append({"text": f"Here is some text content for you to analyze:\n\n{file_contents}"})
+            parts.append({"text": file_contents})
         if image_data:
-            # Add image data to the parts, Gemini can handle it directly
             parts.append({
                 "inlineData": {
-                    "mimeType": "image/jpeg",  # Or image/png, etc.
+                    "mimeType": "image/jpeg",
                     "data": image_data
                 }
             })
@@ -55,7 +77,6 @@ def chat():
             ]
         }
 
-        # Make the API call to Gemini
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         
@@ -73,3 +94,4 @@ if __name__ == '__main__':
         print("Error: GEMINI_API_KEY environment variable is not set. Please set it.")
     else:
         app.run(debug=True)
+
