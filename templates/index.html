@@ -301,7 +301,7 @@
                 };
                 reader.readAsDataURL(imageFile);
             }
-
+            
             const thinkingMessage = document.createElement('div');
             thinkingMessage.classList.add('message-bubble', 'ai');
             thinkingMessage.innerHTML = `
@@ -314,53 +314,20 @@
             chatMessages.appendChild(thinkingMessage);
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
-            let fileContents = '';
-            let imageData = null;
-
-            if (uploadedFiles.length > 0) {
-                const filePromises = uploadedFiles.map(file => {
-                    return new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve({
-                            name: file.name,
-                            data: reader.result,
-                            type: file.type
-                        });
-                        reader.onerror = reject;
-
-                        if (file.type.startsWith('image/')) {
-                            reader.readAsDataURL(file);
-                        } else {
-                            reader.readAsText(file);
-                        }
-                    });
-                });
-
-                const fileResults = await Promise.all(filePromises);
-                fileResults.forEach(result => {
-                    if (result.type.startsWith('image/')) {
-                        imageData = result.data.split(',')[1]; // Extract Base64 string
-                    } else {
-                        fileContents += `File: ${result.name}\nContent:\n${result.data}\n\n`;
-                    }
-                });
-                
-                // Clear the files and UI after processing
-                uploadedFiles = [];
-                renderFileList();
-            }
-
-            const payload = {
-                message: userMessage,
-                fileContents: fileContents,
-                imageData: imageData
-            };
+            const formData = new FormData();
+            formData.append('message', userMessage);
+            uploadedFiles.forEach(file => {
+                formData.append('file', file);
+            });
+            
+            // Clear the files and UI after processing
+            uploadedFiles = [];
+            renderFileList();
 
             try {
                 const response = await fetch('/chat', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
+                    body: formData,
                 });
                 const data = await response.json();
                 chatMessages.removeChild(thinkingMessage);
