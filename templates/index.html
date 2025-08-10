@@ -65,6 +65,7 @@
             display: flex;
             padding: 15px;
             border-top: 1px solid #eee;
+            align-items: center;
         }
         .chat-input input[type="text"] {
             flex-grow: 1;
@@ -73,6 +74,20 @@
             border-radius: 20px;
             outline: none;
             font-size: 1em;
+        }
+        .chat-input input[type="file"] {
+            display: none; /* Hide the default file input */
+        }
+        .chat-input .file-upload-label {
+            background-color: #f0f0f0;
+            color: #555;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+            text-align: center;
         }
         .chat-input button {
             background-color: #007bff;
@@ -97,9 +112,10 @@
             DeepSeek AI Chat
         </div>
         <div class="chat-messages" id="chat-messages">
-            <!-- Messages will be added here dynamically -->
-        </div>
+            </div>
         <div class="chat-input">
+            <label for="file-upload" class="file-upload-label">📁 Upload</label>
+            <input type="file" id="file-upload">
             <input type="text" id="user-input" placeholder="Type a message...">
             <button id="send-btn">Send</button>
         </div>
@@ -109,6 +125,7 @@
         const chatMessages = document.getElementById('chat-messages');
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
+        const fileInput = document.getElementById('file-upload');
 
         function addMessage(text, sender) {
             const messageDiv = document.createElement('div');
@@ -128,11 +145,35 @@
 
         async function sendMessage() {
             const userMessage = userInput.value.trim();
-            if (userMessage === '') return;
+            const file = fileInput.files[0];
 
-            addMessage(userMessage, 'user');
-            userInput.value = '';
+            if (userMessage === '' && !file) return;
 
+            // Handle file upload
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const fileContent = e.target.result;
+                    const messageToSend = `Analyze and summarize the following text from file "${file.name}":\n\n${fileContent}`;
+                    
+                    addMessage(`Analyzing file: ${file.name}...`, 'user');
+                    await sendToServer(messageToSend);
+                };
+                reader.readAsText(file);
+                userInput.value = '';
+                fileInput.value = '';
+                return;
+            }
+
+            // Handle text message
+            if (userMessage !== '') {
+                addMessage(userMessage, 'user');
+                await sendToServer(userMessage);
+                userInput.value = '';
+            }
+        }
+
+        async function sendToServer(message) {
             const thinkingMessage = document.createElement('div');
             thinkingMessage.classList.add('message', 'ai', 'loading');
             thinkingMessage.textContent = 'AI is thinking...';
@@ -145,7 +186,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ message: userMessage }),
+                    body: JSON.stringify({ message: message }),
                 });
 
                 const data = await response.json();
