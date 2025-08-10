@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 import os
 import requests
+import base64
 
 app = Flask(__name__)
 
@@ -17,33 +18,46 @@ def index():
 def chat():
     data = request.json
     user_message = data.get('message', '')
-    
-    if not user_message:
+    file_contents = data.get('fileContents', '')
+    image_data = data.get('imageData', None)
+
+    if not user_message and not file_contents and not image_data:
         return jsonify({'error': 'No message or file content provided'}), 400
 
     try:
-        # Gemini API endpoint for the text-only model
         api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         
         headers = {
             "Content-Type": "application/json"
         }
-        
-        # Structure the payload for a text-only Gemini request
+
+        # Build the parts for the Gemini API call
+        parts = []
+        if user_message:
+            parts.append({"text": user_message})
+        if file_contents:
+            parts.append({"text": f"Here is some text content for you to analyze:\n\n{file_contents}"})
+        if image_data:
+            # Add image data to the parts, Gemini can handle it directly
+            parts.append({
+                "inlineData": {
+                    "mimeType": "image/jpeg",  # Or image/png, etc.
+                    "data": image_data
+                }
+            })
+
         payload = {
             "contents": [
                 {
                     "role": "user",
-                    "parts": [
-                        {"text": user_message}
-                    ]
+                    "parts": parts
                 }
             ]
         }
 
         # Make the API call to Gemini
         response = requests.post(api_url, headers=headers, json=payload)
-        response.raise_for_status()  # Raise an exception for bad status codes
+        response.raise_for_status()
         
         result = response.json()
         ai_response = result['candidates'][0]['content']['parts'][0]['text']
